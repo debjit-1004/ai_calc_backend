@@ -68,32 +68,62 @@ def analyze_image(img: Image, dict_of_vars: dict):
     print(response.text)
     answers = []
     try:
-        # First try direct literal_eval
-        answers = ast.literal_eval(response.text)
-    except Exception as e:
-        print(f"Error in parsing response from Gemini API: {e}")
-        # If that fails, try to fix the response text by adding proper quotes to keys        try:
-        # Replace unquoted keys with quoted keys
-        fixed_text = response.text.replace("{'", '{"').replace("':", '":').replace(", '", ', "').replace("': ", '": ')
-            # Replace single quotes for values with double quotes, but be careful with math expressions
-        fixed_text = fixed_text.replace("', ", '", ').replace("'}", '"}')
-        print("Attempting to parse with fixed formatting:", fixed_text)
-            
-        # Try to use json.loads instead as it might be more forgiving
-        answers = json.loads(fixed_text)
-    except Exception as e2:
-            print(f"Error in parsing fixed response: {e2}")
-              # Last resort: try to manually extract the expr and result values using regex
-            pattern = r"\{'expr': '(.*?)', 'result': '(.*?)'\}"
-            matches = re.findall(pattern, response.text)
-            if matches:
-                answers = [{"expr": expr, "result": result} for expr, result in matches]
-                print("Extracted answers using regex:", answers)
+        # First try to load as JSON directly
+        import json
+        answers = json.loads(response_text)
+        print("Successfully parsed JSON directly")
+    except json.JSONDecodeError as e:
+        print(f"JSON decode error: {e}")
+        try:
+            # Try with ast.literal_eval
+            import ast
+            answers = ast.literal_eval(response_text)
+            print("Successfully parsed with ast.literal_eval")
+        except Exception as e:
+            print(f"literal_eval failed: {e}")
+            try:
+                # Handle common JSON formatting errors
+                import re
+                
+                # Extract content from code blocks if present
+                code_block_match = re.search(r'```(?:json)?\s*(.*?)\s*```', response_text, re.DOTALL)
+                if code_block_match:
+                    response_text = code_block_match.group(1)
+                    print(f"Extracted from code block: {response_text}")
+                
+                # Replace Python-style single quotes with JSON double quotes
+                # First handle the case where we have {'key': 'value'} format
+                fixed_text = response_text.replace("{'", '{"')
+                fixed_text = fixed_text.replace("': '", '": "')
+                fixed_text = fixed_text.replace("', '", '", "')
+                fixed_text = fixed_text.replace("': ", '": ')
+                fixed_text = fixed_text.replace("'}", '"}')
+                fixed_text = fixed_text.replace("',", '",')
+                
+                # Special handling for numeric values that shouldn't be quoted
+                # Replace patterns like "result": "0.5" with "result": 0.5
+                fixed_text = re.sub(r'"result": "(\d+(?:\.\d+)?)"', r'"result": \1', fixed_text)
+                
+                print(f"Fixed text: {fixed_text}")
+                answers = json.loads(fixed_text)
+                print("Successfully parsed with string replacement fixes")
+            except Exception as e2:
+                print(f"String replacement approach failed: {e2}")
+                try:
+                    # Last resort: manual regex extraction
+                    pattern = r"\{'expr': '(.*?)', 'result': (.*?)\}"
+                    matches = re.findall(pattern, response_text)
+                    if matches:
+                        answers = [{"expr": expr, "result": float(result) if result.replace('.', '', 1).isdigit() else result} 
+                                  for expr, result in matches]
+                        print(f"Successfully extracted with regex: {answers}")
+                    else:
+                        print("No regex matches found")
+                except Exception as e3:
+                    print(f"Regex approach failed: {e3}")
     
-    print('returned answer ', answers)
+    # Ensure 'assign' key exists in each answer
     for answer in answers:
-        if 'assign' in answer:
-            answer['assign'] = True
-        else:
-            answer['assign'] = False
+        answer['assign'] = answer.get('assign', False)
+    
     return answers

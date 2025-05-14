@@ -98,3 +98,4 @@ def analyze_image(img: Image, dict_of_vars: dict):
     #     if 'assign' not in answer:
     #         answer['assign'] = False
     # return answers
+    return response[0]['result']

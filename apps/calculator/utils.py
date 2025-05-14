@@ -62,14 +62,37 @@ def analyze_image(img: Image, dict_of_vars: dict):
         f"Here is a dictionary of user-assigned variables. If the given expression has any of these variables, use its actual value from this dictionary accordingly: {dict_of_vars_str}. "
         f"DO NOT USE BACKTICKS OR MARKDOWN FORMATTING. "
         f"PROPERLY QUOTE THE KEYS AND VALUES IN THE DICTIONARY FOR EASIER PARSING WITH Python's ast.literal_eval."
-    )
+    ) 
     response = model.generate_content([prompt, img])
     print(response.text)
     answers = []
     try:
+        # First try direct literal_eval
         answers = ast.literal_eval(response.text)
     except Exception as e:
         print(f"Error in parsing response from Gemini API: {e}")
+        # If that fails, try to fix the response text by adding proper quotes to keys
+        try:
+            # Replace unquoted keys with quoted keys
+            fixed_text = response.text.replace("{'", '{"').replace("':", '":').replace(", '", ', "').replace("': ", '": ')
+            # Replace single quotes for values with double quotes, but be careful with math expressions
+            fixed_text = fixed_text.replace("', ", '", ').replace("'}", '"}')
+            print("Attempting to parse with fixed formatting:", fixed_text)
+            
+            # Try to use json.loads instead as it might be more forgiving
+            import json
+            answers = json.loads(fixed_text)
+        except Exception as e2:
+            print(f"Error in parsing fixed response: {e2}")
+            
+            # Last resort: try to manually extract the expr and result values using regex
+            import re
+            pattern = r"\{'expr': '(.*?)', 'result': '(.*?)'\}"
+            matches = re.findall(pattern, response.text)
+            if matches:
+                answers = [{"expr": expr, "result": result} for expr, result in matches]
+                print("Extracted answers using regex:", answers)
+    
     print('returned answer ', answers)
     for answer in answers:
         if 'assign' in answer:

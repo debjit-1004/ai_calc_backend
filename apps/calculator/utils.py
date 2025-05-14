@@ -64,41 +64,18 @@ def analyze_image(img: Image, dict_of_vars: dict):
         "PROPERLY QUOTE THE KEYS AND VALUES IN THE DICTIONARY FOR EASIER PARSING WITH Python's ast.literal_eval."
     )
     response = model.generate_content([prompt, img])
-    response_text = response.text
-    print(response_text)
-    # answers = []
-    # raw_text = response.text.strip()
-    # # Try ast.literal_eval first
-    # try:
-    #     answers = ast.literal_eval(raw_text)
-    # except Exception as e1:
-    #     print(f"ast.literal_eval failed: {e1}")
-    #     # Try to fix to valid JSON and load
-    #     try:
-    #         fixed_text = raw_text
-    #         # Replace single quotes with double quotes for keys and values
-    #         fixed_text = re.sub(r"'", '"', fixed_text)
-    #         # Replace True/False with true/false for JSON
-    #         fixed_text = fixed_text.replace("True", "true").replace("False", "false")
-    #         answers = json.loads(fixed_text)
-    #     except Exception as e2:
-    #         print(f"json.loads failed: {e2}")
-    #         # Last resort: regex extraction
-    #         pattern = r"\{'expr':\s*'([^']*)',\s*'result':\s*'([^']*)'(?:,\s*'assign':\s*(True|False))?\}"
-    #         matches = re.findall(pattern, raw_text)
-    #         if matches:
-    #             for expr, result, assign in matches:
-    #                 answers.append({
-    #                     "expr": expr,
-    #                     "result": result,
-    #                     "assign": assign == "True" if assign else False
-    #                 })
-    # print('returned answer', answers)
-    # # Ensure assign key
-    # for answer in answers:
-    #     if 'assign' not in answer:
-    #         answer['assign'] = False
-    # return answers
-    parsed_response = json.loads(response_text)
-    print(parsed_response[0]['result'])
-    return response_text[0]['result']
+    print(response.text)
+    answers = []
+    try:
+        answers = ast.literal_eval(response.text)
+    except Exception as e:
+        print(f"Error in parsing response from Gemini API: {e}")
+    print('returned answer ', answers)
+    for answer in answers:
+        if 'assign' in answer:
+            answer['assign'] = True
+        else:
+            answer['assign'] = False
+    return answers
+
+#let see where it goes 

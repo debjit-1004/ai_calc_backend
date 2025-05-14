@@ -77,3 +77,5 @@ def analyze_image(img: Image, dict_of_vars: dict):
         else:
             answer['assign'] = False
     return answers
+
+#let see where it goes 

@@ -99,5 +99,6 @@ def analyze_image(img: Image, dict_of_vars: dict):
     #     if 'assign' not in answer:
     #         answer['assign'] = False
     # return answers
-    print(response_text[0]['result'])
+    parsed_response = json.loads(response_text)
+    print(parsed_response[0]['result'])
     return response_text[0]['result']

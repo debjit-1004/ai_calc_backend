@@ -11,26 +11,39 @@ router = APIRouter()
 @router.post('')
 async def run(data: ImageData):
     try:
-        # Decode base64 image data
+        # Validate image format
         if not data.image.startswith("data:image/"):
-            raise HTTPException(status_code=400, detail="Invalid image format")
+            raise HTTPException(status_code=400, detail="Invalid image format. Expected base64 image data URL.")
+
+        # Split and decode base64 data
+        header, encoded = data.image.split(",", 1)
+        image_bytes = base64.b64decode(encoded)
+        
+        # Verify image integrity
+        try:
+            with Image.open(BytesIO(image_bytes)) as img:
+                img.verify()  # Verify without loading pixel data
+        except Exception as verify_error:
+            raise HTTPException(status_code=400, detail=f"Invalid image file: {str(verify_error)}") from verify_error
+
+        # Re-open image for processing
+        with Image.open(BytesIO(image_bytes)) as img:
+            # Convert to compatible format
+            if img.mode in ('RGBA', 'P', 'LA'):
+                img = img.convert('RGB')
             
-        image_data = base64.b64decode(data.image.split(",")[1])
-        image_bytes = BytesIO(image_data)
-        
-        # Open and validate image
-        image = Image.open(image_bytes)
-        image.verify()  # Verify image integrity
-        
-        # Process image
-        responses = analyze_image(image, dict_of_vars=data.dict_of_vars)
-        
-        # Collect and log responses
-        result_data = []
-        for response in responses:
-            result_data.append(response)
-            logging.info(f"Processed response: {response}")  # Proper logging instead of print
-        
+            # Create fresh in-memory file
+            processed_buffer = BytesIO()
+            img.save(processed_buffer, format="PNG")
+            processed_buffer.seek(0)  # Reset buffer position
+            
+            # Process image with fresh buffer
+            responses = analyze_image(Image.open(processed_buffer), dict_of_vars=data.dict_of_vars)
+
+        # Format responses
+        result_data = [response.dict() if hasattr(response, 'dict') else response for response in responses]
+        logging.info(f"Processed {len(result_data)} responses")
+
         return {
             "message": "Image processed successfully",
             "data": result_data,
@@ -38,10 +51,11 @@ async def run(data: ImageData):
         }
 
     except HTTPException as he:
-        raise he
+        logging.warning(f"Client error: {he.detail}")
+        raise
     except Exception as e:
-        logging.error(f"Processing error: {str(e)}", exc_info=True)
+        logging.error(f"Processing failed: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Image processing failed: {str(e)}"
+            detail="Image processing failed. Please check the image format and try again."
         ) from e

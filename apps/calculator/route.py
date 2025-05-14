@@ -46,7 +46,9 @@ async def run(data: ImageData):
 
         return {
             "message": "Image processed successfully",
-            "data": result_data,
+            # "data": result_data,
+            #checking in production 
+            "data": responses,
             "status": "success"
         }
 

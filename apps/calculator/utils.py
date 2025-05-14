@@ -64,7 +64,8 @@ def analyze_image(img: Image, dict_of_vars: dict):
         "PROPERLY QUOTE THE KEYS AND VALUES IN THE DICTIONARY FOR EASIER PARSING WITH Python's ast.literal_eval."
     )
     response = model.generate_content([prompt, img])
-    print(response.text)
+    response_text = response.text
+    print(response_text)
     # answers = []
     # raw_text = response.text.strip()
     # # Try ast.literal_eval first
@@ -98,4 +99,5 @@ def analyze_image(img: Image, dict_of_vars: dict):
     #     if 'assign' not in answer:
     #         answer['assign'] = False
     # return answers
-    return response[0]['result']
+    print(response_text[0]['result'])
+    return response_text[0]['result']
